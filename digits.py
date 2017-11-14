@@ -103,35 +103,6 @@ digit_maps = [
             }
 ]
 
-all_leds = [x for x in pin_map.keys()]
-
-full_digits = []
-for d in digit_maps:
-    full_digits.append([x for x in d.values()])
-
-for i in pin_map.values():
-    gpio.cleanup(i)
-CHIP_IO.Utilities.unexport_all()
-for i in pin_map.values():
-    gpio.setup(i, gpio.OUT)
-    gpio.output(i, gpio.HIGH)
-
-def turnon(n):
-    global pin_map
-    if type(n) is list:
-        for l in n:
-            gpio.output(pin_map[l], gpio.LOW)
-    else:
-        turnon([n])
-
-def turnoff(n):
-    global pin_map
-    if type(n) is list:
-        for l in n:
-            gpio.output(pin_map[l], gpio.HIGH)
-    else:
-        turnoff([n])
-
 font = {
         "a" : [4, 5, 0, 1, 2, 6],
         "b" : [2, 3, 4, 5, 6],
@@ -141,7 +112,7 @@ font = {
         "f" : [0, 4, 5, 6],
         "g" : [0, 2, 3, 4, 5],
         "h" : [2, 4, 5, 6],
-        "i" : [4],
+        "i" : [4, 5],
         "j" : [1, 2, 3],
         "k" : [1, 2, 4, 5, 6],
         "l" : [3, 4, 5],
@@ -170,7 +141,37 @@ font = {
         "9" : [0, 1, 2, 3, 5, 6],
         "." : [3],
         ":" : [3, 8]
-        }
+}
+
+
+all_leds = [x for x in pin_map.keys()]
+
+full_digits = []
+for d in digit_maps:
+    full_digits.append([x for x in d.values()])
+
+for i in pin_map.values():
+    gpio.cleanup(i)
+CHIP_IO.Utilities.unexport_all()
+for i in pin_map.values():
+    gpio.setup(i, gpio.OUT)
+    gpio.output(i, gpio.HIGH)
+
+def turnon(n):
+    global pin_map
+    if type(n) is list:
+        for l in n:
+            gpio.output(pin_map[l], gpio.LOW)
+    else:
+        turnon([n])
+
+def turnoff(n):
+    global pin_map
+    if type(n) is list:
+        for l in n:
+            gpio.output(pin_map[l], gpio.HIGH)
+    else:
+        turnoff([n])
 
 def get_char(c, pos):
     global font
