@@ -200,10 +200,15 @@ def write_chars(c0, c1=None, c2=None):
     d0 = c0
     d1 = c1
     d2 = c2
-    if type(c0) is list:
-        d0 = c0[0]
-        d1 = c0[1]
-        d2 = c0[2]
+    if type(c0) is list or type(c0) is str:
+        if len(c0) > 0:
+            d0 = c0[0]
+        else:
+            d0 = None
+        if len(c0) > 1:
+            d1 = c0[1]
+        if len(c0) > 2:
+            d2 = c0[2]
 
     write_char(d0, 0)
     write_char(d1, 1)
