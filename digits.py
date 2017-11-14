@@ -130,7 +130,7 @@ font = {
         "y" : [1, 2, 5, 6],
         "z" : [0, 1, 3, 4, 6],
         "0" : [0, 1, 2, 3, 4, 5],
-        "1" : [4, 5],
+        "1" : [1, 2],
         "2" : [0, 1, 3, 4, 6],
         "3" : [0, 1, 2, 3, 6],
         "4" : [1, 4, 5, 6],
@@ -196,22 +196,88 @@ def write_char(c, pos):
         turnon(get_char(c, pos))
     return 0
 
+def write_chars(c0, c1=None, c2=None):
+    d0 = c0
+    d1 = c1
+    d2 = c2
+    if type(c0) is list:
+        d0 = c0[0]
+        d1 = c0[1]
+        d2 = c0[2]
+
+    write_char(d0, 0)
+    write_char(d1, 1)
+    write_char(d2, 2)
+    
+
 def write_str(s, duration):
     letter_duration = float(duration) / len(s)
 
-    d0 = None
-    d1 = None
-    d2 = None
+    chrs = [None, None, None]
     s += "  "
 
     for c in s:
-        d0 = d1
-        d1 = d2
-        d2 = c
-        write_char(d0, 0)
-        write_char(d1, 1)
-        write_char(d2, 2)
+        chrs[0] = chrs[1]
+        chrs[1] = chrs[2]
+        chrs[2] = c
+        write_chars(chrs)
         time.sleep(letter_duration)
     
     write_char(None, 0)
+
+def turn_column(on):
+    global font
+    if on:
+        turnon(font[":"])
+    else:
+        turnoff(font[":"])
+
+def s_count(start, end, up):
+    global all_leds
+    now = start
+
+    add = 1
+    if not up:
+        add = -1
+
+    exit = False
+    col_on = True
+    err = False
+    while not exit:
+        exit = (now == end)
+        if now > 599 or now < 0: # 9 minutes and 59 seconds
+            err = True
+            turn_column(False)
+            write_chars("e", "r", "r")
+            time.sleep(0.5)
+            break
+        d0 = str(int(now / 60))
+        d1 = str(int((now % 60) / 10))
+        d2 = str(int((now % 60) % 10))
+        
+        write_chars(d0, d1, d2)
+
+        now += add
+
+        for b in range(2):
+            turn_column(col_on)
+            col_on = not col_on
+            time.sleep(0.5)
+    
+    if err:
+        err_on = True
+        for b in range(6):
+            if err_on:
+                write_chars(None)
+            else:
+                write_chars("e", "r", "r")
+            err_on = not err_on
+            time.sleep(0.5)
+    else:
+        for b in range(4):
+            turn_column(col_on)
+            col_on = not col_on
+            time.sleep(0.5)
+
+    turnoff(all_leds)
 
