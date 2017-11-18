@@ -5,87 +5,104 @@ import CHIP_IO.GPIO as GPIO
 import CHIP_IO.Utilities
 import time
 import numpy
+import threading
 
+class Fire (threading.Thread):
+    def __init__(self, red_ctl, yellow_ctl):
+        ### SETUP ###
+        self.red_ud_percent = 40
+        self.red_mean = 50
+        self.red_sigma = 15
 
-### SETUP ###
+        self.red_sweep_mean = 6
+        self.red_sweep_sigma = 1
 
-red_ud_percent = 40
-red_mean = 50
-red_sigma = 15
+        self.yellow_mean = 50
+        self.yellow_sigma = 10
+        self.yellow_mult = 0.8
 
-red_sweep_mean = 6
-red_sweep_sigma = 1
+        self.yellow_on_mean = 0.1
+        self.yellow_on_sigma = 0.1
+        self.yellow_percent_increment = 0.01
 
-yellow_mean = 50
-yellow_sigma = 10
-yellow_mult = 0.8
+        self.freq = 100
+        self.fire_update_delay = 0.005
 
-yellow_on_mean = 0.1
-yellow_on_sigma = 0.1
-yellow_percent_increment = 0.01
+        self.red = red_ctl
+        self.yellow = yellow_ctl
 
-freq = 100
-fire_update_delay = 0.005
+        self.running = True
+        self.unlock = threading.Event()
 
-red = "XIO-P1"
-yellow = "XIO-P0"
+    def setup(self):
+        # reset gpio
+        GPIO.cleanup(self.red)
+        GPIO.cleanup(self.yellow)
+        CHIP_IO.Utilities.unexport_all()
 
-#### CODE ####
+         # init gpio
+        pwm.start(self.red, 0, self.freq)
+        pwm.start(self.yellow, 0, self.freq)
 
-# reset gpio
-GPIO.cleanup(red)
-GPIO.cleanup(yellow)
-CHIP_IO.Utilities.unexport_all()
+    def run(self):
+        # init variables
+        noise = numpy.random.normal
+        random = numpy.random.randint
 
-# init variables
-noise = numpy.random.normal
-random = numpy.random.randint
+        red_sweeping = False
+        red_sweep_increment = 0
+        red_duty = 0
+        red_target = 0
 
-red_sweeping = False
-red_sweep_increment = 0
-red_duty = 0
-red_target = 0
+        yellow_ud_percent = 0
+        yellow_cooldown = 0
 
-yellow_ud_percent = 0
-yellow_cooldown = 0
+        # main loop
+        while True:
+            if not self.running:
+                self.unlock.wait()
+            ## handle red
+            if red_sweeping:
+                if red_duty < red_target:
+                    red_duty += red_sweep_increment
+                    if red_duty >= red_target:
+                        red_sweeping = False
+                else:
+                    red_duty -= red_sweep_increment
+                    if red_duty <= red_target:
+                        red_sweeping = False
+                red_duty = max(min(red_duty, 100), 0)
+                pwm.set_duty_cycle(self.red, red_duty)
+            elif random(0, 100) < self.red_ud_percent:
+                red_sweeping = True
+                red_target = max(min(noise(self.red_mean, self.red_sigma), 100), 0)
+                red_sweep_increment = abs(red_duty - red_target) / max(self.red_sweep_sigma, noise(self.red_sweep_mean, self.red_sweep_sigma))
 
-# init gpio
-pwm.start(red, 0, freq)
-pwm.start(yellow, 0, freq)
+            ## handle yellow
+            if yellow_cooldown <= 0: # yellow off
+                if random(0, 100) < yellow_ud_percent:
+                    yellow_cooldown = noise(self.yellow_on_mean, self.yellow_on_sigma)
+                    yellow_ud_percent = 0
+                else:
+                    yellow_ud_percent += self.yellow_percent_increment
+            else:
+                yellow_cooldown -= self.fire_update_delay
+                if yellow_cooldown <= 0:
+                    pwm.set_duty_cycle(self.yellow, 0)
+                else:
+                    pwm.set_duty_cycle(self.yellow, max(min((abs(self.yellow_mean - noise(self.yellow_mean, self.yellow_sigma)) * self.yellow_mult), 100), 0))
 
-# main loop
-while True:
-    ## handle red
-    if red_sweeping:
-        if red_duty < red_target:
-            red_duty += red_sweep_increment
-            if red_duty >= red_target:
-                red_sweeping = False
-        else:
-            red_duty -= red_sweep_increment
-            if red_duty <= red_target:
-                red_sweeping = False
-        red_duty = max(min(red_duty, 100), 0)
-        pwm.set_duty_cycle(red, red_duty)
-    elif random(0, 100) < red_ud_percent:
-        red_sweeping = True
-        red_target = max(min(noise(red_mean, red_sigma), 100), 0)
-        red_sweep_increment = abs(red_duty - red_target) / max(red_sweep_sigma, noise(red_sweep_mean, red_sweep_sigma))
+            ## wait some time
+            time.sleep(self.fire_update_delay)
 
-    ## handle yellow
-    if yellow_cooldown <= 0: # yellow off
-        if random(0, 100) < yellow_ud_percent:
-            yellow_cooldown = noise(yellow_on_mean, yellow_on_sigma)
-            yellow_ud_percent = 0
-        else:
-            yellow_ud_percent += yellow_percent_increment
-    else:
-        yellow_cooldown -= fire_update_delay
-        if yellow_cooldown <= 0:
-            pwm.set_duty_cycle(yellow, 0)
-        else:
-            pwm.set_duty_cycle(yellow, max(min((abs(yellow_mean - noise(yellow_mean, yellow_sigma)) * yellow_mult), 100), 0))
+    def go(self):
+        self.running = True
+        self.unlock.set()
 
-    ## wait some time
-    time.sleep(fire_update_delay)
+    def stop(self):
+        self.running = False
 
+if __name__ == "__main__":
+    f = Fire("XIO-P1", "XIO-P0")
+    f.setup()
+    f.run()
