@@ -14,7 +14,7 @@ class Sensor:
         gpio.cleanup(sensor_ctl)
         gpio.setup(sensor_ctl, gpio.IN, pull_up_down=pud)
 
-        self.state = gpio.input(sensor_ctl)
+        self.state = None
 
     def register_callback(self, callback, high):
         if not callable(callback):
@@ -25,17 +25,21 @@ class Sensor:
         else:
             self.callbacks_low.append(callback)
 
+    def perform(self, high):
+        cblist = None
+        if high:
+            cblist = self.callbacks_high
+        else:
+            cblist = self.callbacks_low
+        for cb in cblist:
+            cb()
+
     def read(self):
         val = gpio.input(self.sensor)
         if val != self.state:
             self.state = val
-            cblist = None
-            if val:
-                cblist = self.callbacks_high
-            else:
-                cblist = self.callbacks_low
-            for cb in cblist:
-                cb()
+            self.perform(val)
+        return val
 
 class IntDispatcher(threading.Thread):
     sensors = {}
@@ -66,6 +70,14 @@ def register_callback(channel, callback, high, pud=gpio.PUD_UP):
 def register_callbacks(channel, callback_high, callback_low, pud=gpio.PUD_UP):
     register_callback(channel, callback_high, True, pud)
     register_callback(channel, callback_low, False)
+
+def replay_action(channel):
+    if channel in IntDispatcher.sensors.keys():
+        IntDispatcher.sensors[channel].perform(IntDispatcher.sensors[channel].state)
+
+def replay_actions():
+    for s in IntDispatcher.sensors.values():
+        s.perform(s.state)
 
 if __name__ == "__main__":
     pin = "CSID0"

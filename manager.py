@@ -14,7 +14,7 @@ fires_ctl = [
         ("XIO-P2", "XIO-P3")
 ]
 
-relay = Relay(relay_ctl)
+relay = Relay(relay_ctl, False)
 
 sensor.register_callback(sensor_ctl, relay.a, False)
 
@@ -27,6 +27,8 @@ for f in fires_ctl:
     sensor.register_callbacks(sensor_ctl, fire.go, fire.stop)
 
 sensor.register_callback(sensor_ctl, relay.nb, True)
+
+sensor.replay_action(sensor_ctl)
 
 while True:
     time.sleep(100)
