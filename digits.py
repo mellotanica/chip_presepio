@@ -279,10 +279,13 @@ def s_count(start, end, up):
             err_on = not err_on
             time.sleep(0.5)
     else:
-        for b in range(4):
-            turn_column(col_on)
-            col_on = not col_on
-            time.sleep(0.5)
+        turn_column(False)
+        write_chars("bum")
+        #  for b in range(4):
+            #  turn_column(col_on)
+            #  col_on = not col_on
+            #  time.sleep(0.5)
+        time.sleep(3)
 
     turnoff(all_leds)
 

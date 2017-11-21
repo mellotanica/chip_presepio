@@ -9,6 +9,9 @@ import threading
 
 class Fire (threading.Thread):
     def __init__(self, red_ctl, yellow_ctl):
+        threading.Thread.__init__(self)
+        self.daemon = True
+
         ### SETUP ###
         self.red_ud_percent = 40
         self.red_mean = 50
@@ -34,17 +37,26 @@ class Fire (threading.Thread):
         self.running = True
         self.unlock = threading.Event()
 
-    def setup(self):
-        # reset gpio
-        GPIO.cleanup(self.red)
-        GPIO.cleanup(self.yellow)
-        CHIP_IO.Utilities.unexport_all()
+        self.initialized = False
+        self.started = False
 
-         # init gpio
-        pwm.start(self.red, 0, self.freq)
-        pwm.start(self.yellow, 0, self.freq)
+    def setup(self):
+        if not self.initialized:
+            # reset gpio
+            GPIO.cleanup(self.red)
+            GPIO.cleanup(self.yellow)
+
+             # init gpio
+            pwm.start(self.red, 0, self.freq)
+            pwm.start(self.yellow, 0, self.freq)
+
+            self.initialized = True
 
     def run(self):
+        self.started = True
+
+        self.setup()
+
         # init variables
         noise = numpy.random.normal
         random = numpy.random.randint
@@ -98,11 +110,19 @@ class Fire (threading.Thread):
     def go(self):
         self.running = True
         self.unlock.set()
+        if not self.started:
+            self.start()
 
     def stop(self):
+        self.setup()
+        self.unlock.clear()
         self.running = False
+        pwm.set_duty_cycle(self.red, 0)
+        pwm.set_duty_cycle(self.yellow, 0)
 
 if __name__ == "__main__":
-    f = Fire("XIO-P1", "XIO-P0")
-    f.setup()
-    f.run()
+    f = Fire("XIO-P0", "XIO-P1")
+    f.start()
+
+    while True:
+        time.sleep(10)
