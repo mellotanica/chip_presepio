@@ -121,7 +121,7 @@ class Fire (threading.Thread):
         pwm.set_duty_cycle(self.yellow, 0)
 
 if __name__ == "__main__":
-    f = Fire("XIO-P0", "XIO-P1")
+    f = Fire("XIO-P1", "XIO-P3")
     f.start()
 
     while True:
