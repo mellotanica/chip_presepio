@@ -3,30 +3,24 @@
 import CHIP_IO.SOFTPWM as pwm
 import CHIP_IO.GPIO as GPIO
 import CHIP_IO.Utilities
-import time
 import math
-import threading
+from animate import Updater
 
-class Star (threading.Thread):
-    def __init__(self, led_ctl):
-        threading.Thread.__init__(self)
-        self.daemon = True
+class Star (Updater):
+    def __init__(self, led_ctl, update_delay=0.01):
+        Updater.__init__(self, update_delay)
 
         ### SETUP ###
         self.freq = 100
-        self.update_delay = 0.02
+        self.update_delay = update_delay
 
         self.led = led_ctl
 
-        self.min_value = 50
+        self.min_value = 30
         self.max_value = 100
         self.sweep_time = 4 #sec
 
-        self.running = True
-        self.unlock = threading.Event()
-
         self.initialized = False
-        self.started = False
 
     def setup(self):
         if not self.initialized:
@@ -35,45 +29,31 @@ class Star (threading.Thread):
 
              # init gpio
             pwm.start(self.led, 0, self.freq)
+            self.currenta_angle = 0
+
+            self.delta = self.max_value - self.min_value
+            self.angle_increment = (self.update_delay * 180) / (self.sweep_time * 60)
 
             self.initialized = True
 
-    def run(self):
-        self.started = True
-
+    def cycle(self):
         self.setup()
 
-        currenta_angle = 0
-        delta = self.max_value - self.min_value
-        angle_increment = (self.update_delay * 180) / (self.sweep_time * 60)
+        dc = self.min_value + abs(math.sin(self.currenta_angle) * self.delta)
+        self.currenta_angle = (self.currenta_angle + self.angle_increment) % 360
+        pwm.set_duty_cycle(self.led, dc)
 
-        # main loop
-        while True:
-            if not self.running:
-                self.unlock.wait()
-
-            dc = self.min_value + abs(math.sin(currenta_angle) * delta)
-            currenta_angle = (currenta_angle + angle_increment) % 360
-            pwm.set_duty_cycle(self.led, dc)
-
-            ## wait some time
-            time.sleep(self.update_delay)
-
-    def go(self):
-        self.running = True
-        self.unlock.set()
-        if not self.started:
-            self.start()
-
-    def stop(self):
-        self.setup()
-        self.unlock.clear()
-        self.running = False
+    def clear(self):
         pwm.set_duty_cycle(self.led, 0)
 
 if __name__ == "__main__":
+    from animate import Animator
+    import time
+
     s = Star("CSID7")
-    s.start()
+
+    animator = Animator()
+    animator.post_updater(s)
 
     while True:
-        time.sleep(10)
+        time.sleep(100)

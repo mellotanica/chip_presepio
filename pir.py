@@ -18,16 +18,16 @@ class Cooldown(threading.Thread):
         self.wakeuptime = time.time()
         self.going = False
 
-        self.start()
-
     def run(self):
+        print("starting cooldown")
         while True:
             self.going = False
+            if not self.going:
+                print("cooldown waiting for start")
+                self.unblock.wait()
+                self.unblock.clear()
 
-            self.unblock.wait()
-            self.going = True
-            self.unblock.clear()
-
+            print("cooldown starting")
             self.pir.high()
 
             while self.wakeuptime > time.time():
@@ -39,6 +39,7 @@ class Cooldown(threading.Thread):
     def go(self, cooldown):
         self.wakeuptime = time.time() + cooldown
         if not self.going:
+            self.going = True
             self.unblock.set()
 
 
@@ -48,9 +49,10 @@ class Pir(sensor.Sensor):
 
         self.cooldown_time = 12
         self.cooldown = Cooldown(self)
-
+        self.cooldown.start()
 
     def perform(self, high=False):
+        print("pir perform {}".format(high))
         if self.enabled and high:
                 self.cooldown.go(self.cooldown_time)
 
@@ -62,7 +64,34 @@ class Pir(sensor.Sensor):
 
 
 def get_pir(channel, pud=gpio.PUD_UP):
-    if channel not in sensor.IntDispatcher.sensors.keys():
-        sensor.IntDispatcher.sensors[channel] = Pir(channel, pud)
-    return sensor.IntDispatcher.sensors[channel]
+    disp = sensor.IntDispatcher
+    if channel not in disp.sensors.keys():
+        disp.sensors[channel] = Pir(channel, pud)
+    return disp.sensors[channel]
 
+if __name__ == "__main__":
+    import sys
+    import time
+
+    if len(sys.argv) > 1:
+        pin = sys.argv[1]
+    else:
+        pin = "CSID1"
+
+    pud = gpio.PUD_UP
+    if len(sys.argv) > 2:
+        if sys.argv[2].lower() == "up":
+            pud = gpio.PUD_UP
+        elif sys.argv[2].lower() == "down":
+            pud = gpio.PUD_DOWN
+
+    def cb_h():
+        print("high")
+    def cb_l():
+        print("low")
+
+    p = get_pir(pin, pud)
+    p.register_callbacks(cb_h, cb_l)
+
+    while True:
+        time.sleep(100)
